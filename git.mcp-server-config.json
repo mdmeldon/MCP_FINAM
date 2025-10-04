@@ -1,0 +1,11 @@
+{
+    "finam_mcp": {
+        "transport": "stdio",
+        "command": "uvx",
+        "args": [
+            "--from",
+            "git+ssh://git@github.com/mdmeldon/finam-mcp.git",
+            "finam_mcp"
+        ]
+    }
+}

@@ -1,0 +1,10 @@
+{
+    "finam_mcp": {
+        "transport": "stdio",
+        "command": "python",
+        "args": [
+            "-m",
+            "src"
+        ]
+    }
+}

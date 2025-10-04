@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import streamlit as st
 from langchain import hub
@@ -25,32 +26,15 @@ history = StreamlitChatMessageHistory(key="chat_messages")
 
 @st.cache_resource(show_spinner=False)
 def _cached_client(account_id: str, finam_api_token: str):
-    # Отдельный event loop не создаём; Streamlit управляет петлёй
-    return MultiServerMCPClient(
-        {
-            "finam_mcp": {
-                "transport": "stdio",
-                "command": "uvx",
-                "args": [
-                    "--isolated",
-                    "--verbose",
-                    "--from",
-                    "git+ssh://git@github.com/mdmeldon/finam-mcp.git",
-                    "finam_mcp"
-                ],
-                "env": {
-                    "FINAM_API_TOKEN": finam_api_token,
-                    "FINAM_ACCOUNT_ID": account_id,
-                },
-                # "transport": "streamable_http",
-                # "url": "http://localhost:8000/mcp",
-                # "headers": {
-                #     # Вынести в конфиг/секреты при необходимости
-                #     "Authorization": "Bearer 89b64bdf6c3f4ea36fe80de8f0dac1958175289a4b4bec6d79f97ec7435a9676",
-                # },
+    with open(".mcp-server-config.json", "r") as file:
+        config = json.loads(file.read())
+
+        if config["finam_mcp"]["transport"] == "stdio":
+            config["finam_mcp"]["env"] = {
+                "FINAM_API_TOKEN": finam_api_token,
+                "FINAM_ACCOUNT_ID": account_id,
             }
-        }
-    )
+        return MultiServerMCPClient(config)
 
 
 @st.cache_resource(show_spinner=False)
@@ -74,7 +58,8 @@ async def _init_agent_async(cfg: LangchainConfig, account_id: str, finam_api_tok
 
     @tool
     def get_finam_api_token() -> str | None:
-        """Возвращает введённый пользователем Finam API token из UI (или пустую строку)."""
+        """Возвращает введённый пользователем finam_api_token Finam API token из UI (или пустую строку).
+        Требуется для любых запросов finam_mcp tools."""
         return finam_api_token
 
     tools = load_tools(["ddg-search"])
@@ -89,10 +74,10 @@ async def _init_agent_async(cfg: LangchainConfig, account_id: str, finam_api_tok
     except Exception as e:
         st.warning(f"Не удалось загрузить MCP-тулы: {e}")
 
-    # agent_graph = lg_create_react_agent(llm, tools)
-    prompt = hub.pull("hwchase17/react")
-    agent = create_react_agent(llm, tools, prompt=prompt)
-    agent_graph = AgentExecutor(agent=agent, tools=tools, verbose=True)
+    agent_graph = lg_create_react_agent(llm, tools)
+    # prompt = hub.pull("hwchase17/react")
+    # agent = create_react_agent(llm, tools, prompt=prompt)
+    # agent_graph = AgentExecutor(agent=agent, tools=tools, verbose=True)
     return agent_graph
 
 
@@ -119,9 +104,23 @@ def _get_persistent_loop() -> asyncio.AbstractEventLoop:
 
 def create_langchain_app(cfg: LangchainConfig):
 
+
+
+
     with st.sidebar:
-        account_id = st.text_input("ID счета:", value="", help="Оставьте пустым если не требуется")
-        finam_api_token = st.text_input("Finam API-token:", value="", help="Оставьте пустым если не требуется")
+        st.title("Finam AI Assistant")
+        st.info(f"Модель: {cfg.MODEL}")
+        with st.expander("🔑 Доступы:"):
+            finam_api_token = st.text_input("Finam API токен:", value="", help="Оставьте пустым если не требуется")
+            account_id = st.text_input("ID счета:", value="", help="Оставьте пустым если не требуется")
+
+    if not finam_api_token:
+        st.sidebar.warning(
+            "⚠️ Finam API токен не установлен. Установите Finam API token в соответствующем поле."
+        )
+    else:
+        st.sidebar.success("✅ Finam API токен установлен")
+
     loop = _get_persistent_loop()
     agent_graph = loop.run_until_complete(_init_agent_async(cfg, account_id, finam_api_token))
 
@@ -139,13 +138,15 @@ def create_langchain_app(cfg: LangchainConfig):
         st.chat_message("user").write(prompt)
 
         with st.chat_message("assistant"):
-            st_callback = StreamlitCallbackHandler(st.container())
-            # st_callback = get_streamlit_cb(st.empty(), expand_steps=True)
-            # last_msg = loop.run_until_complete(
-            #     _handle_chat_async_stream(agent_graph, st.session_state.messages, [st_callback])
-            # )
-            last_msg = agent_graph.invoke(
-                {"input": st.session_state.messages}, {"callbacks": [st_callback]}
+            # st_callback = StreamlitCallbackHandler(st.container())
+            st_callback = get_streamlit_cb(st.empty(), expand_steps=True)
+            last_msg = loop.run_until_complete(
+                _handle_chat_async_stream(agent_graph, st.session_state.messages, [st_callback])
             )
             if last_msg:
-                st.session_state.messages.append(AIMessage(content=last_msg["output"]))
+                st.session_state.messages.append(AIMessage(content=last_msg))
+            # last_msg = agent_graph.invoke(
+            #     {"input": st.session_state.messages}, {"callbacks": [st_callback]}
+            # )
+            # if last_msg:
+            #     st.session_state.messages.append(AIMessage(content=last_msg["output"]))

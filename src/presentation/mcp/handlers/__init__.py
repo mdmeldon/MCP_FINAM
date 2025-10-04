@@ -26,8 +26,8 @@ from .client import (
 
 def init_tools(app: FastMCP) -> None:
     # Auth
-    app.add_tool(finam_auth, name="finam_auth", title="Authenticate with API token and get JWT")
-    app.add_tool(finam_token_details, name="finam_token_details", title="Get JWT token details")
+    # app.add_tool(finam_auth, name="finam_auth", title="Authenticate with API token and get JWT")
+    # app.add_tool(finam_token_details, name="finam_token_details", title="Get JWT token details")
 
     # Accounts & portfolio
     app.add_tool(get_account, name="get_account", title="Get account by id")
@@ -35,7 +35,7 @@ def init_tools(app: FastMCP) -> None:
     app.add_tool(transactions, name="transactions", title="Get account transactions")
 
     # Reference data
-    app.add_tool(assets, name="assets", title="List assets")
+    # app.add_tool(assets, name="assets", title="List assets")
     app.add_tool(clock, name="clock", title="Get server time")
     app.add_tool(exchanges, name="exchanges", title="List exchanges")
     app.add_tool(get_asset, name="get_asset", title="Get asset by symbol")

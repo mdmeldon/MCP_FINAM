@@ -5,4 +5,4 @@ if __name__ == "__main__":
     cfg = Config()
     mcp = create_mcp_app(cfg.SERVER)
 
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="stdio")

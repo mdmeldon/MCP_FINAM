@@ -123,8 +123,8 @@ class StreamlitGraphCallbackHandler(BaseCallbackHandler):
     def on_tool_start(self, serialized, input_str, *args, **kwargs) -> None:
         name = (serialized or {}).get("name", "tool")
         preview = input_str if isinstance(input_str, str) else str(input_str)
-        if len(preview) > 500:
-            preview = preview[:500] + "…"
+        # if len(preview) > 500:
+        #     preview = preview[:500] + "…"
 
         def _():
             # Если итерация ещё не создана (LangGraph без AgentAction), создадим её здесь
