@@ -11,7 +11,7 @@ from src.application.dtos import OrderBookRespDTO, LatestTradesDTO, LastQuoteDTO
 from src.application.interfaces.client import IClient
 
 
-class Client(IClient):
+class FinamClient(IClient):
     """
     Клиент для работы с Finam API.
 
@@ -72,8 +72,7 @@ class Client(IClient):
         # Добавляем заголовки авторизации для защищённых запросов
         req_headers = self.headers.copy()
         if use_auth and self._jwt_token:
-            # Используем Bearer-схему для JWT
-            req_headers["Authorization"] = f"Bearer {self._jwt_token}"
+            req_headers["Authorization"] = self._jwt_token
 
         response = await self.session.request(
             method=method,
@@ -92,7 +91,7 @@ class Client(IClient):
                 url=url,
                 params=self._encode_params(params),
                 json=json,
-                headers={"Authorization": f"Bearer {self._jwt_token}"} if self._jwt_token else None,
+                headers={"Authorization": self._jwt_token} if self._jwt_token else None,
             )
 
         # Ошибки HTTP
@@ -135,13 +134,13 @@ class Client(IClient):
 
     async def auth(self) -> AuthRespDTO:
         # Авторизация выполняется без текущего JWT, только с API-токеном
-        payload = {"token": self._api_token}
+        payload = {"secret": self._api_token}
         data = await self._request("POST", "/v1/sessions", json=payload, use_auth=False)
         result = AuthRespDTO.model_validate(data)
 
         # Сохраняем JWT и заголовок
         self._jwt_token = result.token
-        self.headers["Authorization"] = f"Bearer {self._jwt_token}"
+        self.headers["Authorization"] = self._jwt_token
 
         # Получаем детали токена, чтобы знать срок действия и список аккаунтов
         try:

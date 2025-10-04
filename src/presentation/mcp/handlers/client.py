@@ -41,7 +41,7 @@ from src.application.dtos import (
     LatestTradesDTO,
     OrderBookRespDTO,
 )
-from src.infrastructure.core.client import Client
+from src.infrastructure.core.finam_client import FinamClient
 
 
 def _parse_dt(value: str) -> datetime.datetime:
@@ -76,7 +76,7 @@ def _parse_leg(leg: Dict[str, Any]) -> LegDTO:
 async def _build_client(api_token: str):
     session = aiohttp.ClientSession(base_url="https://api.finam.ru/")
     try:
-        yield Client(token=api_token, session=session)
+        yield FinamClient(token=api_token, session=session)
     finally:
         await session.close()
 
