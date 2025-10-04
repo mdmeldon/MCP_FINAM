@@ -19,25 +19,29 @@ history = StreamlitChatMessageHistory(key="chat_messages")
 
 
 @st.cache_resource(show_spinner=False)
-def _cached_client():
+def _cached_client(account_id: str, finam_api_token: str):
     # Отдельный event loop не создаём; Streamlit управляет петлёй
     return MultiServerMCPClient(
         {
             "finam_mcp": {
-                "transport": "stdio",
-                "command": "uvx",
-                "args": [
-                    "--isolated",
-                    "--verbose",
-                    "git+ssh://git@github.com/mdmeldon/finam-mcp.git",
-                    "finam_mcp"
-                ],
-                # "transport": "streamable_http",
-                # "url": "http://localhost:8000/mcp",
-                # "headers": {
-                #     # Вынести в конфиг/секреты при необходимости
-                #     "Authorization": "Bearer 89b64bdf6c3f4ea36fe80de8f0dac1958175289a4b4bec6d79f97ec7435a9676",
+                # "transport": "stdio",
+                # "command": "uvx",
+                # "args": [
+                #     "--isolated",
+                #     "--verbose",
+                #     "git+ssh://git@github.com/mdmeldon/finam-mcp.git",
+                #     "finam_mcp"
+                # ],
+                # "env": {
+                #     "FINAM_API_TOKEN": finam_api_token,
+                #     "FINAM_ACCOUNT_ID": account_id,
                 # },
+                "transport": "streamable_http",
+                "url": "http://localhost:8000/mcp",
+                "headers": {
+                    # Вынести в конфиг/секреты при необходимости
+                    "Authorization": "Bearer 89b64bdf6c3f4ea36fe80de8f0dac1958175289a4b4bec6d79f97ec7435a9676",
+                },
             }
         }
     )
@@ -71,7 +75,8 @@ async def _init_agent_async(cfg: LangchainConfig, account_id: str, finam_api_tok
     tools.append(get_account_id)
     tools.append(get_finam_api_token)
 
-    client = _cached_client()
+    client = _cached_client(account_id=account_id, finam_api_token=finam_api_token)
+
     try:
         tools_from_mcp = await client.get_tools()
         tools.extend(tools_from_mcp)
@@ -92,11 +97,10 @@ def create_langchain_app(cfg: LangchainConfig):
     with st.sidebar:
         account_id = st.text_input("ID счета:", value="", help="Оставьте пустым если не требуется")
         finam_api_token = st.text_input("Finam API-token:", value="", help="Оставьте пустым если не требуется")
-    # Инициализацию агента и загрузку MCP-тулов выполняем асинхронно
     agent_graph = asyncio.run(_init_agent_async(cfg, account_id, finam_api_token))
 
     if "messages" not in st.session_state:
-        st.session_state["messages"] = [AIMessage(content="How can I help you?")]
+        st.session_state["messages"] = [AIMessage(content="Чем могу помочь?")]
 
     for msg in st.session_state.messages:
         if type(msg) == AIMessage:
@@ -115,4 +119,3 @@ def create_langchain_app(cfg: LangchainConfig):
             )
             last_msg = response["messages"][-1].content
             st.session_state.messages.append(AIMessage(content=last_msg))
-            # Ответ уже выведен коллбэком в ходе стриминга; избегаем дублирования в UI
