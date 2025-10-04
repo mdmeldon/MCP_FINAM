@@ -148,7 +148,6 @@ class StreamlitGraphCallbackHandler(BaseCallbackHandler):
                 tool_block_ph = step["exp"].empty()
                 tool_block_exp = tool_block_ph.expander(f"{name} — 🟡 Выполняется", expanded=False)
                 tool_block_exp.markdown(f"**Вход:**\n\n```\n{preview}\n```")
-                print(input_str)
                 step["tools"].append({
                     "name": name,
                     "status": "running",
