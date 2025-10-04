@@ -1,55 +1,76 @@
-# Hello World MCP Template
+# Finam MCP Server
 
-Simple Hello World MCP (Model Context Protocol) server template with environment variable examples. This is a minimal template to get started with creating your own MCP servers.
+Finam MCP (Model Context Protocol) сервер для интеграции с различными сервисами и инструментами.
 
-## Features
+## Возможности
 
-- Basic "Hello World" functionality
-- Environment variable usage examples
-- Echo functionality for testing
-- Server information endpoint
-- Simple error handling
-- Logging configuration
+- Базовая функциональность "Hello World"
+- Работа с переменными окружения
+- Простая обработка ошибок
+- Настройка логирования
+- Легкая расширяемость
 
-## Installation
+## Установка
 
-### Option 1: Using uv (recommended)
+### Вариант 1: Глобальная установка через uvx (рекомендуется)
+
+После публикации на PyPI, сервер можно будет использовать глобально:
 
 ```bash
-# Clone or copy this template
-cd mcp_template
+# Запуск через uvx (без установки)
+uvx finam-mcp
+```
 
-# Create virtual environment
+### Вариант 2: Локальная разработка
+
+```bash
+# Клонировать репозиторий
+git clone https://github.com/yourusername/finam-mcp.git
+cd finam-mcp
+
+# Создать виртуальное окружение
 uv venv
 
-# Activate virtual environment
-source .venv/bin/activate  # On macOS/Linux
-# or
-.venv\Scripts\activate     # On Windows
+# Активировать виртуальное окружение
+source .venv/bin/activate  # На macOS/Linux
+# или
+.venv\Scripts\activate     # На Windows
 
-# Install dependencies
+# Установить в режиме разработки
 uv pip install -e .
 ```
 
-### Connecting to Claude Desktop or Cursor
+### Подключение к Claude Desktop или Cursor
 
-Add this configuration to your `claude_desktop_config.json` or MCP configuration:
+После публикации на PyPI добавьте эту конфигурацию в `claude_desktop_config.json` или конфигурацию MCP:
 
 ```json
 {
   "mcpServers": {
-    "mcp_template": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--directory",
-        "/Users/olegstefanov/Base/Prog/mcp_template", // путь до папки с MCP
-        "server"
-      ],
+    "finam": {
+      "command": "uvx",
+      "args": ["finam-mcp"],
       "env": {
-        "TEST_ENV": "dawjdkawnkdakwd"
+        "TEST_ENV": "your_value_here"
       },
-      "description": "MCP server for getting templates"
+      "description": "Finam MCP Server"
+    }
+  }
+}
+```
+
+Для локальной разработки используйте:
+
+```json
+{
+  "mcpServers": {
+    "finam": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/finam-mcp", "finam-mcp"],
+      "env": {
+        "TEST_ENV": "your_value_here"
+      },
+      "description": "Finam MCP Server (local)"
     }
   }
 }
@@ -58,12 +79,15 @@ Add this configuration to your `claude_desktop_config.json` or MCP configuration
 ## Available Tools
 
 ### `hello`
+
 Returns a hello message with optional personalization.
 
 **Parameters:**
+
 - `name` (optional): Name to greet
 
 **Example:**
+
 ```python
 # Basic hello
 {"tool": "hello"}
@@ -75,11 +99,13 @@ Returns a hello message with optional personalization.
 ```
 
 ### `get_env_info`
+
 Returns information from environment variables.
 
 **Parameters:** None
 
 **Example:**
+
 ```python
 {"tool": "get_env_info"}
 # Returns: {
@@ -111,18 +137,18 @@ To add a new tool to your MCP server:
 def your_tool_function(param1: str, param2: Optional[int] = None) -> Dict[str, Any]:
     """
     Description of your tool.
-    
+
     Parameters:
     - param1: Description of parameter 1
     - param2: Description of parameter 2 (optional)
-    
+
     Returns:
     - Description of return value
     """
     try:
         # Your tool logic here
         result = f"Processing {param1} with {param2}"
-        
+
         return {
             "success": True,
             "result": result
@@ -180,4 +206,4 @@ Enable debug mode by setting `DEBUG=true` in your `.env` file for more verbose l
 
 - Check the [MCP documentation](https://modelcontextprotocol.io/)
 - Review the server logs for error messages
-- Ensure all dependencies are correctly installed 
+- Ensure all dependencies are correctly installed
