@@ -129,14 +129,62 @@ def _get_persistent_loop() -> asyncio.AbstractEventLoop:
 
 
 def create_langchain_app(cfg: LangchainConfig):
+    # Получаем текущее значение API ключа безопасно
+    try:
+        current_api_key = cfg.API_KEY.get_secret_value() if cfg.API_KEY else ""
+    except AttributeError:
+        # Если cfg.API_KEY уже строка (после обновления)
+        current_api_key = str(cfg.API_KEY) if cfg.API_KEY else ""
+
     with st.sidebar:
         st.title("Finam AI Assistant")
+
+        # OpenRouter API Configuration
+        with st.expander("🤖 AI Модель (OpenRouter)", expanded=not current_api_key):
+            openrouter_key = st.text_input(
+                "OpenRouter API Key:",
+                value=current_api_key,
+                type="password",
+                help="Получите ключ на https://openrouter.ai/keys"
+            )
+            if openrouter_key and openrouter_key != current_api_key:
+                # Обновляем конфигурацию через переменные окружения
+                import os
+                from pydantic import SecretStr
+                os.environ["OPENROUTER_API_KEY"] = openrouter_key
+                cfg.API_KEY = SecretStr(openrouter_key)
+                current_api_key = openrouter_key
+
         st.info(f"Модель: {cfg.MODEL}")
-        with st.expander("🔑 Доступы:"):
+
+        # Finam API Configuration
+        with st.expander("🔑 Finam API:"):
             finam_api_token = st.text_input(
                 "Finam API токен:", value="", help="Оставьте пустым если не требуется")
             account_id = st.text_input(
                 "ID счета:", value="", help="Оставьте пустым если не требуется")
+
+        # Кнопка очистки визуализаций
+        st.divider()
+        if st.button("🗑️ Очистить визуализации", use_container_width=True):
+            st.session_state["visualizations"] = []
+            st.session_state["message_visualizations"] = {}
+            st.rerun()
+
+        # Статистика
+        total_viz = sum(len(v) for v in st.session_state.get(
+            "message_visualizations", {}).values())
+        if total_viz > 0:
+            st.caption(f"📊 Визуализаций: {total_viz}")
+
+    # Проверка конфигурации
+    if not current_api_key:
+        st.sidebar.error("❌ OpenRouter API ключ не установлен!")
+        st.sidebar.info(
+            "💡 Получите ключ на [OpenRouter](https://openrouter.ai/keys)")
+        st.stop()
+    else:
+        st.sidebar.success("✅ OpenRouter API настроен")
 
     if not finam_api_token:
         st.sidebar.warning(
@@ -156,38 +204,30 @@ def create_langchain_app(cfg: LangchainConfig):
     if "visualizations" not in st.session_state:
         st.session_state["visualizations"] = []
 
-    # Отображение визуализаций
-    if st.session_state.get("visualizations"):
-        st.divider()
+    # Словарь для привязки визуализаций к сообщениям (индекс сообщения -> список визуализаций)
+    if "message_visualizations" not in st.session_state:
+        st.session_state["message_visualizations"] = {}
 
-        # Кнопки управления визуализациями
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.subheader("📊 Визуализации")
-        with col2:
-            if st.button("🗑️ Очистить", key="clear_viz"):
-                st.session_state["visualizations"] = []
-                st.rerun()
-
-        # Отображение графиков
-        for idx, viz in enumerate(st.session_state["visualizations"]):
-            with st.container():
-                st.markdown(f"#### {viz['title']}")
-                try:
-                    fig = go.Figure(json.loads(viz['data']))
-                    st.plotly_chart(
-                        fig, use_container_width=True, key=f"viz_{idx}")
-                except Exception as e:
-                    st.error(f"Ошибка отображения визуализации: {e}")
-
-        st.divider()
-
-    # Отображение истории чата
-    for msg in st.session_state.messages:
-        if type(msg) == AIMessage:
-            st.chat_message("assistant").write(msg.content)
+    # Отображение истории чата с визуализациями
+    for idx, msg in enumerate(st.session_state.messages):
         if type(msg) == HumanMessage:
             st.chat_message("user").write(msg.content)
+        elif type(msg) == AIMessage:
+            with st.chat_message("assistant"):
+                st.write(msg.content)
+
+                # Отображаем визуализации для этого сообщения
+                if idx in st.session_state.get("message_visualizations", {}):
+                    visualizations = st.session_state["message_visualizations"][idx]
+                    for viz_idx, viz in enumerate(visualizations):
+                        st.markdown(f"#### {viz['title']}")
+                        try:
+                            fig = go.Figure(json.loads(viz['data']))
+                            st.plotly_chart(
+                                fig, use_container_width=True, key=f"msg_{idx}_viz_{viz_idx}"
+                            )
+                        except Exception as e:
+                            st.error(f"Ошибка отображения визуализации: {e}")
 
     if prompt := st.chat_input():
         st.session_state.messages.append(HumanMessage(content=prompt))
@@ -205,7 +245,21 @@ def create_langchain_app(cfg: LangchainConfig):
             if last_msg:
                 st.session_state.messages.append(AIMessage(content=last_msg))
 
-            # Если добавились новые визуализации, перезапускаем страницу
+            # Если добавились новые визуализации, привязываем их к последнему сообщению
             viz_count_after = len(st.session_state.get("visualizations", []))
             if viz_count_after > viz_count_before:
+                # Индекс последнего сообщения (только что добавленного)
+                last_message_idx = len(st.session_state.messages) - 1
+
+                # Получаем новые визуализации
+                new_visualizations = st.session_state["visualizations"][viz_count_before:]
+
+                # Привязываем к сообщению
+                if last_message_idx not in st.session_state["message_visualizations"]:
+                    st.session_state["message_visualizations"][last_message_idx] = [
+                    ]
+                st.session_state["message_visualizations"][last_message_idx].extend(
+                    new_visualizations)
+
+                # Перезапускаем для отображения
                 st.rerun()
