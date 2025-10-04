@@ -27,7 +27,6 @@ import csv
 import re
 import time
 from pathlib import Path
-from typing import Any
 
 import click
 from tqdm import tqdm  # type: ignore[import-untyped]
@@ -40,7 +39,7 @@ import requests
 def call_llm(messages: list[dict[str, str]], temperature: float = 0.2, max_tokens: int | None = None) -> dict[str, Any]:
     """Простой вызов LLM без tools"""
     payload: dict[str, Any] = {
-        "model": "openai/gpt4o-mini",
+        "model": "openai/gpt-4o-mini",
         "messages": messages,
         "temperature": temperature,
     }
@@ -101,19 +100,36 @@ METHOD /path
 
 Текущая дата: 2025-10-04
 
-Где:
-- METHOD: GET, POST, DELETE
-- /path: путь к API endpoint
-
 ПРИМЕРЫ:
 
 {examples_text}
+
+Name                        Description
+TIME_FRAME_UNSPECIFIED      Таймфрейм не указан
+TIME_FRAME_M1               1 минута. Глубина данных 7 дней.
+TIME_FRAME_M5               5 минут. Глубина данных 30 дней.
+TIME_FRAME_M15              15 минут. Глубина данных 30 дней.
+TIME_FRAME_M30              30 минут. Глубина данных 30 дней.
+TIME_FRAME_H1               1 час. Глубина данных 30 дней.
+TIME_FRAME_H2	            2 часа. Глубина данных 30 дней.
+TIME_FRAME_H4	            4 часа. Глубина данных 30 дней.
+TIME_FRAME_H8	            8 часов. Глубина данных 30 дней.
+TIME_FRAME_D	            День. Глубина данных 365 дней.
+TIME_FRAME_W	            Неделя. Глубина данных 365*5 дней.
+TIME_FRAME_MN	            Месяц. Глубина данных 365*5 дней.
+TIME_FRAME_QR	            Квартал. Глубина данных 365*5 дней.
+
+Где:
+- METHOD: GET, POST, DELETE
+- /path: путь к API endpoint
 
 ВАЖНО:
 1. Отвечай ТОЛЬКО в формате "METHOD /path"
 2. Не добавляй объяснений, комментариев
 3. Используй {{account_id}}, {{order_id}} для параметров
 4. Символы: SBER@MISX, GAZP@MISX, ROSN@MISX, LKOH@MISX, etc.
+5. Если {{account_id}}, {{order_id}} не были переданы, но в эндпоинт содержит форматирование  - не подставляй выдуманные значения
+6. Если вопрос про уровень доступа аккаунта - нужно вызывать /v1/session/details
 
 ПРАВИЛА ФОРМИРОВАНИЯ QUERY-ПАРАМЕТРОВ:
 — Все даты/время: ISO8601 с таймзоной UTC (например, 2025-10-04T00:00:00Z)
@@ -125,44 +141,22 @@ METHOD /path
 По эндпоинтам:
 - GET /v1/accounts/{{account_id}}/trades?interval.start_time=...&interval.end_time=...&limit=...
 - GET /v1/accounts/{{account_id}}/transactions?interval.start_time=...&interval.end_time=...&limit=...
-- GET /v1/instruments/{{symbol}}/bars?interval.start_time=...&interval.end_time=...&timeframe=...
-- GET /v1/assets?symbol=...&ticker=...&mic=...&name=...&type=...&limit=...&offset=...
+- GET /v1/instruments/{{symbol}}/bars?timeframe=...&interval.start_time=...&interval.end_time=...
+- GET /v1/assets
 - GET /v1/assets/{{symbol}}?account_id={{account_id}}
 - GET /v1/assets/{{symbol}}/params?account_id={{account_id}}
-- GET /v1/assets/{{symbol}}/schedule   (без query)
-- GET /v1/assets/{{underlying_symbol}}/options   (без query)
-- GET /v1/instruments/{{symbol}}/quotes/latest   (без query)
-- GET /v1/instruments/{{symbol}}/trades/latest   (без query)
-- GET /v1/instruments/{{symbol}}/orderbook   (без query)
-- GET /v1/accounts/{{account_id}}   (без query)
-- GET /v1/accounts/{{account_id}}/orders   (без query)
-- GET /v1/accounts/{{account_id}}/orders/{{order_id}}   (без query)
-- DELETE /v1/accounts/{{account_id}}/orders/{{order_id}}   (без query)
-- POST /v1/accounts/{{account_id}}/orders   (тело JSON, без query)
-
-ШАБЛОНЫ ENDPOINTS (синхронизированы с серверными handlers):
-
-Котировки/данные:
-GET /v1/instruments/{{symbol}}/quotes/latest
-GET /v1/instruments/{{symbol}}/orderbook
-GET /v1/instruments/{{symbol}}/trades/latest
-GET /v1/instruments/{{symbol}}/bars
-
-Инструменты:
-GET /v1/assets
-GET /v1/assets/{{symbol}}
-GET /v1/assets/{{symbol}}/params
-GET /v1/assets/{{symbol}}/schedule
-GET /v1/assets/{{symbol}}/options
-
-Счет/ордера:
-GET /v1/accounts/{{account_id}}
-GET /v1/accounts/{{account_id}}/orders
-GET /v1/accounts/{{account_id}}/orders/{{order_id}}
-POST /v1/accounts/{{account_id}}/orders
-DELETE /v1/accounts/{{account_id}}/orders/{{order_id}}
-GET /v1/accounts/{{account_id}}/trades
-GET /v1/accounts/{{account_id}}/transactions
+- GET /v1/assets/{{symbol}}/schedule   (без query!)
+- GET /v1/assets/{{underlying_symbol}}/options   (без query!)
+- GET /v1/instruments/{{symbol}}/quotes/latest   (без query!)
+- GET /v1/instruments/{{symbol}}/trades/latest   (без query!)
+- GET /v1/instruments/{{symbol}}/orderbook   (без query)!
+- GET /v1/accounts/{{account_id}}   (без query!)
+- GET /v1/accounts/{{account_id}}/orders   (без query!)
+- GET /v1/accounts/{{account_id}}/orders/{{order_id}}   (без query!)
+- DELETE /v1/accounts/{{account_id}}/orders/{{order_id}}   (без query!)
+- POST /v1/accounts/{{account_id}}/orders   (тело JSON, без query!)
+- POST /v1/sessions/details   (тело JSON, без query!)
+- POST /v1/sessions   (тело JSON, без query!)
 
 Служебные:
 GET /v1/assets/clock
@@ -210,10 +204,9 @@ async def generate_api_call_fast(
 
     try:
         # Вызываем LLM БЕЗ MCP tools
-        response = await call_llm_async(
+        response = call_llm(
             messages,
             temperature=0.0,
-            use_mcp_tools=False  # ✅ КЛЮЧЕВОЕ ИЗМЕНЕНИЕ
         )
 
         # Извлекаем ответ
@@ -232,6 +225,7 @@ async def generate_api_call_fast(
         return {"type": method, "request": path}, cost
 
     except Exception as e:
+        print(e)
         if debug:
             click.echo(f"  ❌ Ошибка: {e}")
         return {"type": "GET", "request": "/v1/assets"}, 0.0
