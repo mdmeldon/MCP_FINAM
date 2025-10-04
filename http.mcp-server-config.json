@@ -1,0 +1,9 @@
+{
+    "finam_mcp": {
+        "transport": "streamable_http",
+        "url": "http://localhost:8000/mcp",
+        "headers": {
+            "Authorization": "Bearer 89b64bdf6c3f4ea36fe80de8f0dac1958175289a4b4bec6d79f97ec7435a9676"
+        }
+    }
+}

@@ -1,0 +1,87 @@
+---
+alwaysApply: true
+---
+
+### Архитектурный обзор
+
+Проект разделён на слои по принципам чистой архитектуры:
+
+- **application**: бизнес-абстракции и модели данных
+
+  - `interfaces/` — интерфейсы (например, `IClient`) для работы с внешними системами
+  - `dtos.py` — Pydantic-модели DTO для запросов/ответов Finam API и сопутствующих сущностей
+  - `exceptions/` — доменные исключения
+
+- **infrastructure**: реализации инфраструктурных зависимостей
+
+  - `core/finam_client.py` — асинхронный клиент Finam API (aiohttp) с получением и авто-пролонгацией JWT
+  - `log/` — конфигурация и утилиты логирования
+
+- **presentation**: интерфейсы взаимодействия и интеграции
+
+  - `mcp/` — сервер MCP (FastMCP), регистрация инструментов (`handlers/`)
+  - `langchain/` — Streamlit UI и LangGraph/LangChain-агент, подключение MCP-инструментов
+  - `composition/di/` — DI-провайдеры (например, `FinamApiClientProvider` на базе `dishka`)
+
+- **configs**: конфигурация через `pydantic_settings`
+  - `ServerConfig`, `LoggerConfig`, `LangchainConfig` и общий `Config`
+
+В корне:
+
+- `src/__main__.py` — запуск MCP по stdio
+- `server.py` — запуск Streamlit-приложения с LangChain-агентом
+
+### Поток данных и ответственность модулей
+
+1. UI/Интеграции (слой presentation):
+
+   - `presentation/langchain/main.py` инициализирует LLM, инструменты (`ddg-search`, `get_current_time`), подключает инструменты из MCP через `MultiServerMCPClient`, строит LangGraph-агента и обрабатывает чат в Streamlit.
+   - `presentation/mcp/main.py` создаёт экземпляр `FastMCP` и регистрирует инструменты из `presentation/mcp/handlers`.
+
+2. Инструменты MCP (`presentation/mcp/handlers/client.py`):
+
+   - Каждый инструмент оборачивает конкретный метод клиента Finam (например, `get_account`, `place_order`, `bars` и т.д.).
+   - Инструменты принимают параметры, приводят типы/enum, вызывают инфраструктурный клиент и возвращают сериализуемые DTO.
+
+3. Домен и контракты (слой application):
+
+   - `IClient` задаёт контракт для клиента биржевого API.
+   - `dtos.py` описывает доменные структуры данных и перечисления (Side, OrderType, TimeFrame и т.д.).
+
+4. Инфраструктура (`infrastructure/core/finam_client.py`):
+   - Реализует `IClient` для Finam API: получение короткоживущего JWT по API-токену, автоматическое обновление токена, вызовы REST-эндпоинтов.
+   - Использует `aiohttp.ClientSession` с `base_url`, обрабатывает статусы (включая 401 для рефреша токена).
+
+### Конфигурация
+
+- `configs/server.py` — параметры MCP-сервера (имя, хост/порт и пр.) с префиксом переменных окружения `SERVER_`.
+- `configs/langchain.py` — параметры LangChain/LLM и Streamlit.
+- `configs/__init__.py` — агрегирующий `Config` с вложенными секциями.
+
+Приложение не читает значения из `.env` напрямую в коде; загрузка выполняется через `pydantic_settings` (env-префиксы, `env_file`).
+
+### Точки входа
+
+- `src/__main__.py` — формирует `Config`, создаёт MCP-приложение (`create_mcp_app`) и запускает транспорт `stdio`.
+- `server.py` — формирует `Config` и запускает Streamlit UI (`create_langchain_app`).
+
+### Интеграция MCP ↔ LangChain
+
+- MCP-сервер поднимает набор инструментов для доступа к операциям Finam.
+- LangChain-агент (LangGraph ReAct) подгружает эти инструменты через `langchain_mcp_adapters.client.MultiServerMCPClient` и комбинирует их с локальными тулзами (например, `ddg-search`).
+- Потоковые ответы и шаги размышления отображаются в Streamlit через кастомный callback (`presentation/langchain/callback.py`).
+
+### Логирование и наблюдаемость
+
+- Модуль `infrastructure/log/` содержит настройку логирования и процессоры.
+- В Streamlit-UI шаги агента/вызовы инструментов логируются и визуализируются (expanders с токенами, шагами, ошибками).
+
+### Тесты
+
+- Каталог `test/` содержит сценарии и скрипты запуска (`run_test.sh`, `test_openrouter.py`).
+
+### Расширяемость
+
+- Новые инструменты MCP добавляются через `presentation/mcp/handlers` и регистрируются в `init_tools`.
+- Альтернативные реализации клиентов могут быть подключены через `IClient` и DI в `composition/di/`.
+- UI и цепочки агента расширяются в `presentation/langchain/` (новые инструменты, промпты, политики).
