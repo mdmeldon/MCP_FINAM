@@ -26,8 +26,8 @@ from .client import (
 
 def init_tools(app: FastMCP) -> None:
     # Auth
-    # app.add_tool(finam_auth, name="finam_auth", title="Authenticate with API token and get JWT")
-    # app.add_tool(finam_token_details, name="finam_token_details", title="Get JWT token details")
+    app.add_tool(finam_auth, name="finam_auth", title="Authenticate with API token and get JWT")
+    app.add_tool(finam_token_details, name="finam_token_details", title="Get JWT token details")
 
     # Accounts & portfolio
     app.add_tool(get_account, name="get_account", title="Get account by id")

@@ -1,7 +1,7 @@
 from dishka import Provider, provide, Scope
 from pydantic_settings import BaseSettings
 
-from src.infrastructure.core.client import Client
+from src.infrastructure.core.finam_client import FinamClient
 
 
 class FinamApiClientProvider(Provider):
@@ -10,5 +10,5 @@ class FinamApiClientProvider(Provider):
         self.cfg = cfg
 
     @provide(scope=Scope.REQUEST)
-    def provide_client(self) -> Client:
-        return Client(token=self.cfg.TOKEN)
+    def provide_client(self) -> FinamClient:
+        return FinamClient(token=self.cfg.TOKEN)

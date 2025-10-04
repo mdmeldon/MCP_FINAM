@@ -1,20 +1,16 @@
 from mcp.server.fastmcp import FastMCP
 
-from src.configs import Config
+from src.configs import ServerConfig
 from src.presentation.mcp.handlers import init_tools
 
 
-def create_mcp_app():
-    cfg = Config()
-
+def create_mcp_app(cfg: ServerConfig):
     mcp = FastMCP(
-        name=cfg.SERVER.APP_NAME,
-        host=cfg.SERVER.HOST,
-        port=cfg.SERVER.PORT,
+        name=cfg.APP_NAME,
+        host=cfg.HOST,
+        port=cfg.PORT,
     )
 
     init_tools(mcp)
-
-    # mcp.run(transport="streamable-http")
 
     return mcp
