@@ -118,7 +118,7 @@ async def trades(api_token: str, account_id: str, start_time: str, end_time: str
 
 
 async def transactions(api_token: str) -> TransactionsRespDTO:
-    """Список транзакций первого доступного аккаунта из токена."""
+    """Список транзакций первого доступного аккаунта из токена [start_time, end_time] (ISO8601)."""
     async with _build_client(api_token) as client:
         resp = await client.transactions()
         return resp

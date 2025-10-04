@@ -1,10 +1,12 @@
 {
     "finam_mcp": {
         "transport": "stdio",
-        "command": "python",
+        "command": "uvx",
         "args": [
-            "-m",
-            "src"
+            "--verbose",
+            "--from",
+            "/Users/macbookpro3128/PycharmProjects/finam-mcp",
+            "finam_mcp"
         ]
     }
 }

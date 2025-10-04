@@ -1,8 +1,9 @@
 import asyncio
+import datetime
 import json
 
+import pendulum
 import streamlit as st
-from langchain import hub
 from langchain.tools import tool
 from langchain_openai import ChatOpenAI
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -10,13 +11,9 @@ from langchain_community.agent_toolkits.load_tools import load_tools
 from langgraph.prebuilt import create_react_agent as lg_create_react_agent
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.runnables import RunnableConfig
-from langchain.agents import AgentExecutor, create_react_agent
 from src.configs import LangchainConfig
 from langchain_community.chat_message_histories import (
     StreamlitChatMessageHistory,
-)
-from langchain_community.callbacks.streamlit import (
-    StreamlitCallbackHandler,
 )
 
 from src.presentation.langchain.callback import get_streamlit_cb
@@ -52,19 +49,12 @@ async def _init_agent_async(cfg: LangchainConfig, account_id: str, finam_api_tok
     llm = _cached_llm(cfg)
 
     @tool
-    def get_account_id() -> str | None:
-        """Возвращает выбранный пользователем account_id из UI (или пустую строку)."""
-        return account_id
-
-    @tool
-    def get_finam_api_token() -> str | None:
-        """Возвращает введённый пользователем finam_api_token Finam API token из UI (или пустую строку).
-        Требуется для любых запросов finam_mcp tools."""
-        return finam_api_token
+    def get_current_time(tz: str = "UTC") -> pendulum.DateTime:
+        """ВАЖНО! Если запрос пользователя связан с датой/временем обязательно нужно проверить текущее время!"""
+        return pendulum.now(tz)
 
     tools = load_tools(["ddg-search"])
-    tools.append(get_account_id)
-    tools.append(get_finam_api_token)
+    tools.append(get_current_time)
 
     client = _cached_client(account_id=account_id, finam_api_token=finam_api_token)
 
@@ -75,9 +65,6 @@ async def _init_agent_async(cfg: LangchainConfig, account_id: str, finam_api_tok
         st.warning(f"Не удалось загрузить MCP-тулы: {e}")
 
     agent_graph = lg_create_react_agent(llm, tools)
-    # prompt = hub.pull("hwchase17/react")
-    # agent = create_react_agent(llm, tools, prompt=prompt)
-    # agent_graph = AgentExecutor(agent=agent, tools=tools, verbose=True)
     return agent_graph
 
 
@@ -103,10 +90,6 @@ def _get_persistent_loop() -> asyncio.AbstractEventLoop:
 
 
 def create_langchain_app(cfg: LangchainConfig):
-
-
-
-
     with st.sidebar:
         st.title("Finam AI Assistant")
         st.info(f"Модель: {cfg.MODEL}")
@@ -138,15 +121,9 @@ def create_langchain_app(cfg: LangchainConfig):
         st.chat_message("user").write(prompt)
 
         with st.chat_message("assistant"):
-            # st_callback = StreamlitCallbackHandler(st.container())
             st_callback = get_streamlit_cb(st.empty(), expand_steps=True)
             last_msg = loop.run_until_complete(
                 _handle_chat_async_stream(agent_graph, st.session_state.messages, [st_callback])
             )
             if last_msg:
                 st.session_state.messages.append(AIMessage(content=last_msg))
-            # last_msg = agent_graph.invoke(
-            #     {"input": st.session_state.messages}, {"callbacks": [st_callback]}
-            # )
-            # if last_msg:
-            #     st.session_state.messages.append(AIMessage(content=last_msg["output"]))

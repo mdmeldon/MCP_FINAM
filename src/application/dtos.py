@@ -71,7 +71,7 @@ class TradeDTO(BaseModel):
 
 
 class TradesRespDTO(BaseModel):
-    traded: list[TradeDTO]
+    trades: list[TradeDTO]
 
 
 class TransactionDTO(BaseModel):

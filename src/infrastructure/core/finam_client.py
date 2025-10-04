@@ -169,8 +169,8 @@ class FinamClient(IClient):
     async def trades(self, account_id: str, start_time: datetime.datetime,
                      end_time: datetime.datetime) -> TradesRespDTO:
         params = {
-            "start_time": start_time,
-            "end_time": end_time,
+            "interval.start_time": start_time,
+            "interval.end_time": end_time,
         }
         data = await self._request("GET", f"/v1/accounts/{account_id}/trades", params=params)
         return TradesRespDTO.model_validate(data)
@@ -264,8 +264,8 @@ class FinamClient(IClient):
     async def bars(self, symbol: str, start_time: datetime.datetime, end_time: datetime.datetime,
                    timeframe: TimeFrame) -> BarsRespDTO:
         params = {
-            "start_time": start_time,
-            "end_time": end_time,
+            "interval.start_time": start_time,
+            "interval.end_time": end_time,
             # Для таймфрейма отдаём имя (TIME_FRAME_M1, ...)
             "timeframe": getattr(timeframe, "name", timeframe),
         }
