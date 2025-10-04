@@ -22,9 +22,23 @@ from src.presentation.langchain.tools.visualization import (
     visualize_portfolio,
     visualize_strategy_backtest,
     create_comparison_chart,
+    visualize_portfolio_performance,
+    visualize_portfolio_rebalancing,
 )
 
 history = StreamlitChatMessageHistory(key="chat_messages")
+
+# Приветственное сообщение ассистента
+WELCOME_MESSAGE = """👋 Привет! Я AI-ассистент для работы с Finam Trade API.
+
+**Я помогу вам:**
+- 📊 Анализировать портфель и позиции
+- 📈 Выставлять и отменять ордера
+- 🔍 Получать котировки и рыночные данные
+- 📉 Тестировать торговые стратегии
+- 🔎 Искать информацию о компаниях
+
+Задавайте вопросы или попросите выполнить операцию! 🚀"""
 
 
 @st.cache_resource(show_spinner=False)
@@ -67,6 +81,8 @@ async def _init_agent_async(cfg: LangchainConfig, account_id: str, finam_api_tok
         visualize_portfolio,
         visualize_strategy_backtest,
         create_comparison_chart,
+        visualize_portfolio_performance,
+        visualize_portfolio_rebalancing,
     ])
 
     client = _cached_client(account_id=account_id,
@@ -132,9 +148,16 @@ def create_langchain_app(cfg: LangchainConfig):
     # Получаем текущее значение API ключа безопасно
     try:
         current_api_key = cfg.API_KEY.get_secret_value() if cfg.API_KEY else ""
+        finam_api_token_value = cfg.FINAM_API_TOKEN.get_secret_value(
+        ) if cfg.FINAM_API_TOKEN else ""
+        account_id_value = cfg.FINAM_ACCOUNT_ID.get_secret_value() if cfg.FINAM_ACCOUNT_ID else ""
     except AttributeError:
         # Если cfg.API_KEY уже строка (после обновления)
         current_api_key = str(cfg.API_KEY) if cfg.API_KEY else ""
+        finam_api_token_value = str(
+            cfg.FINAM_API_TOKEN) if cfg.FINAM_API_TOKEN else ""
+        account_id_value = str(
+            cfg.FINAM_ACCOUNT_ID) if cfg.FINAM_ACCOUNT_ID else ""
 
     with st.sidebar:
         st.title("Finam AI Assistant")
@@ -160,16 +183,25 @@ def create_langchain_app(cfg: LangchainConfig):
         # Finam API Configuration
         with st.expander("🔑 Finam API:"):
             finam_api_token = st.text_input(
-                "Finam API токен:", value="", help="Оставьте пустым если не требуется")
+                "Finam API токен:", value=finam_api_token_value, type="password", help="Получите токен в личном кабинете Finam")
             account_id = st.text_input(
-                "ID счета:", value="", help="Оставьте пустым если не требуется")
+                "ID счета:", value=account_id_value, help="Получите ID счета в личном кабинете Finam")
 
-        # Кнопка очистки визуализаций
+        # Кнопки управления
         st.divider()
-        if st.button("🗑️ Очистить визуализации", use_container_width=True):
-            st.session_state["visualizations"] = []
-            st.session_state["message_visualizations"] = {}
-            st.rerun()
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🗑️ Очистить чат", use_container_width=True):
+                st.session_state["messages"] = [
+                    AIMessage(content=WELCOME_MESSAGE)]
+                st.session_state["visualizations"] = []
+                st.session_state["message_visualizations"] = {}
+                st.rerun()
+        with col2:
+            if st.button("🗑️ Визуализации", use_container_width=True):
+                st.session_state["visualizations"] = []
+                st.session_state["message_visualizations"] = {}
+                st.rerun()
 
         # Статистика
         total_viz = sum(len(v) for v in st.session_state.get(
@@ -199,7 +231,7 @@ def create_langchain_app(cfg: LangchainConfig):
 
     # Инициализация session_state
     if "messages" not in st.session_state:
-        st.session_state["messages"] = [AIMessage(content="Чем могу помочь?")]
+        st.session_state["messages"] = [AIMessage(content=WELCOME_MESSAGE)]
 
     if "visualizations" not in st.session_state:
         st.session_state["visualizations"] = []
@@ -261,5 +293,14 @@ def create_langchain_app(cfg: LangchainConfig):
                 st.session_state["message_visualizations"][last_message_idx].extend(
                     new_visualizations)
 
-                # Перезапускаем для отображения
-                st.rerun()
+                # Отображаем визуализации сразу, без перезагрузки страницы
+                for viz_idx, viz in enumerate(new_visualizations):
+                    st.markdown(f"#### {viz['title']}")
+                    try:
+                        fig = go.Figure(json.loads(viz['data']))
+                        st.plotly_chart(
+                            fig, use_container_width=True,
+                            key=f"new_msg_{last_message_idx}_viz_{viz_idx}"
+                        )
+                    except Exception as e:
+                        st.error(f"Ошибка отображения визуализации: {e}")

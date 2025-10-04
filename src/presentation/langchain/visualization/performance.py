@@ -332,3 +332,190 @@ def create_performance_chart(
     )
 
     return fig.to_json(), metrics
+
+
+def create_portfolio_performance_chart(
+    portfolio_data: List[Dict[str, Any]],
+    benchmark_data: List[Dict[str, Any]],
+    portfolio_name: str = "Портфель",
+    benchmark_name: str = "Бенчмарк (IMOEX)"
+) -> str:
+    """
+    Создает график сравнения исторической доходности портфеля с бенчмарком.
+
+    График нормализует цены к начальному значению (100%) и показывает
+    относительное изменение стоимости портфеля и бенчмарка во времени.
+
+    Args:
+        portfolio_data: Список исторических данных портфеля с полями:
+                       - timestamp: дата/время
+                       - value: стоимость портфеля
+        benchmark_data: Список баров бенчмарка (результат bars из MCP) с полями:
+                       - timestamp: дата/время
+                       - close: цена закрытия
+        portfolio_name: Название портфеля для легенды
+        benchmark_name: Название бенчмарка для легенды
+
+    Returns:
+        JSON-строка с графиком Plotly
+
+    Example:
+        >>> portfolio = [{"timestamp": "2024-01-01", "value": 100000}, ...]
+        >>> benchmark = [{"timestamp": "2024-01-01", "close": {"value": "3500"}}, ...]
+        >>> fig_json = create_portfolio_performance_chart(portfolio, benchmark)
+    """
+    if not portfolio_data and not benchmark_data:
+        # Пустой график с сообщением
+        fig = go.Figure()
+        fig.add_annotation(
+            text="Нет данных для отображения",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+            showarrow=False,
+            font=dict(size=16)
+        )
+        fig.update_layout(
+            title="График исторической доходности",
+            height=500
+        )
+        return fig.to_json()
+
+    # Создаем DataFrame для портфеля
+    portfolio_df = None
+    if portfolio_data:
+        portfolio_records = []
+        for item in portfolio_data:
+            timestamp = item.get("timestamp")
+            if isinstance(timestamp, str):
+                try:
+                    timestamp = datetime.fromisoformat(
+                        timestamp.replace("Z", "+00:00"))
+                except:
+                    continue
+
+            value = safe_float(item.get("value", {}))
+            if value > 0:
+                portfolio_records.append({
+                    "timestamp": timestamp,
+                    "value": value
+                })
+
+        if portfolio_records:
+            portfolio_df = pd.DataFrame(
+                portfolio_records).sort_values("timestamp")
+            # Нормализуем к начальному значению
+            initial_value = portfolio_df["value"].iloc[0]
+            portfolio_df["normalized"] = (
+                portfolio_df["value"] / initial_value - 1) * 100
+
+    # Создаем DataFrame для бенчмарка
+    benchmark_df = None
+    if benchmark_data:
+        benchmark_records = []
+        for bar in benchmark_data:
+            timestamp = bar.get("timestamp")
+            if isinstance(timestamp, str):
+                try:
+                    timestamp = datetime.fromisoformat(
+                        timestamp.replace("Z", "+00:00"))
+                except:
+                    continue
+
+            close_price = safe_float(bar.get("close", {}))
+            if close_price > 0:
+                benchmark_records.append({
+                    "timestamp": timestamp,
+                    "close": close_price
+                })
+
+        if benchmark_records:
+            benchmark_df = pd.DataFrame(
+                benchmark_records).sort_values("timestamp")
+            # Нормализуем к начальному значению
+            initial_close = benchmark_df["close"].iloc[0]
+            benchmark_df["normalized"] = (
+                benchmark_df["close"] / initial_close - 1) * 100
+
+    # Создаем график
+    fig = go.Figure()
+
+    # Добавляем линию портфеля
+    if portfolio_df is not None:
+        fig.add_trace(go.Scatter(
+            x=portfolio_df["timestamp"],
+            y=portfolio_df["normalized"],
+            mode="lines",
+            name=portfolio_name,
+            line=dict(color="rgb(50, 180, 220)", width=3),
+            hovertemplate="<b>" + portfolio_name + "</b><br>" +
+                          "Доходность: %{y:.2f}%<br>" +
+                          "Дата: %{x}<br>" +
+                          "<extra></extra>"
+        ))
+
+    # Добавляем линию бенчмарка
+    if benchmark_df is not None:
+        fig.add_trace(go.Scatter(
+            x=benchmark_df["timestamp"],
+            y=benchmark_df["normalized"],
+            mode="lines",
+            name=benchmark_name,
+            line=dict(color="rgb(220, 100, 50)", width=2, dash="dash"),
+            hovertemplate="<b>" + benchmark_name + "</b><br>" +
+                          "Доходность: %{y:.2f}%<br>" +
+                          "Дата: %{x}<br>" +
+                          "<extra></extra>"
+        ))
+
+    # Добавляем нулевую линию
+    fig.add_hline(
+        y=0,
+        line_dash="dot",
+        line_color="gray",
+        annotation_text="Начальное значение",
+        annotation_position="left"
+    )
+
+    # Настройка внешнего вида
+    fig.update_layout(
+        title={
+            "text": "📈 График исторической доходности портфеля vs Бенчмарк",
+            "x": 0.5,
+            "xanchor": "center",
+            "font": dict(size=18, color="#1f77b4")
+        },
+        xaxis_title="Дата",
+        yaxis_title="Доходность, %",
+        hovermode="x unified",
+        template="plotly_white",
+        height=550,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            font=dict(size=12)
+        ),
+        margin=dict(l=60, r=30, t=100, b=60)
+    )
+
+    # Настройка сетки
+    fig.update_xaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor="rgba(200, 200, 200, 0.3)"
+    )
+
+    fig.update_yaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor="rgba(200, 200, 200, 0.3)",
+        zeroline=True,
+        zerolinewidth=2,
+        zerolinecolor="rgba(150, 150, 150, 0.5)"
+    )
+
+    return fig.to_json()

@@ -3,9 +3,10 @@
 """
 
 import plotly.express as px
+import plotly.graph_objects as go
 import pandas as pd
 from typing import List, Dict, Any
-from .utils import get_sector_by_ticker, safe_float, format_currency
+from .utils import get_sector_by_ticker, safe_float, format_currency, SECTOR_COLORS
 
 
 def create_portfolio_sunburst(positions: List[Dict[str, Any]]) -> str:
@@ -86,18 +87,13 @@ def create_portfolio_sunburst(positions: List[Dict[str, Any]]) -> str:
 
     df = pd.DataFrame(data)
 
-    # Создаем Sunburst диаграмму
+    # Создаем Sunburst диаграмму с цветовой схемой для секторов
     fig = px.sunburst(
         df,
         path=["Сектор", "Инструмент"],
         values="Стоимость",
-        color="Доходность",
-        color_continuous_scale=[
-            [0, "rgb(220, 50, 50)"],      # Красный для убытков
-            [0.5, "rgb(240, 240, 240)"],  # Серый для нуля
-            [1, "rgb(50, 200, 50)"]       # Зеленый для прибыли
-        ],
-        color_continuous_midpoint=0,
+        color="Сектор",
+        color_discrete_map=SECTOR_COLORS,
         hover_data={
             "Стоимость": ":,.0f",
             "Доходность": ":.2f",
@@ -105,7 +101,7 @@ def create_portfolio_sunburst(positions: List[Dict[str, Any]]) -> str:
             "Количество": ":,.0f",
             "Цена": ":,.2f",
         },
-        title="Структура портфеля по секторам экономики"
+        title="📊 Структура портфеля по секторам экономики"
     )
 
     # Настройка внешнего вида
@@ -116,16 +112,21 @@ def create_portfolio_sunburst(positions: List[Dict[str, Any]]) -> str:
                       "Доля: %{percentParent:.1%}<br>" +
                       "Доходность: %{customdata[1]:.2f}%<br>" +
                       "P&L: %{customdata[2]:,.0f} ₽<br>" +
-                      "<extra></extra>"
+                      "<extra></extra>",
+        marker=dict(
+            line=dict(color='white', width=2)
+        )
     )
 
     fig.update_layout(
-        margin=dict(t=50, l=0, r=0, b=0),
-        height=600,
-        font=dict(size=12),
-        coloraxis_colorbar=dict(
-            title="Доходность, %",
-            ticksuffix="%"
+        margin=dict(t=80, l=0, r=0, b=0),
+        height=650,
+        font=dict(size=13),
+        title=dict(
+            text="📊 Структура портфеля по секторам экономики",
+            x=0.5,
+            xanchor='center',
+            font=dict(size=18, color='#1f77b4')
         )
     )
 
