@@ -391,7 +391,9 @@ dependencies = [
     { name = "langgraph" },
     { name = "mcp", extra = ["cli"] },
     { name = "orjson" },
+    { name = "pandas" },
     { name = "pendulum" },
+    { name = "plotly" },
     { name = "pydantic" },
     { name = "streamlit" },
     { name = "structlog" },
@@ -410,7 +412,9 @@ requires-dist = [
     { name = "langgraph", specifier = ">=0.6.8" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.16.0,<2.0.0" },
     { name = "orjson", specifier = ">=3.11.3,<4.0.0" },
+    { name = "pandas", specifier = ">=2.2.0" },
     { name = "pendulum", specifier = ">=3.1.0" },
+    { name = "plotly", specifier = ">=5.24.0" },
     { name = "pydantic", specifier = ">=2.11.9,<3.0.0" },
     { name = "streamlit", specifier = ">=1.50.0" },
     { name = "structlog", specifier = ">=25.4.0,<26.0.0" },
@@ -1505,6 +1509,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f0/77/bc6f92a3e8e6e46c0ca78abfffec0037845800ea38c73483760362804c41/pillow-11.3.0-cp314-cp314t-win32.whl", hash = "sha256:118ca10c0d60b06d006be10a501fd6bbdfef559251ed31b794668ed569c87e12", size = 6377370, upload-time = "2025-07-01T09:15:46.673Z" },
     { url = "https://files.pythonhosted.org/packages/4a/82/3a721f7d69dca802befb8af08b7c79ebcab461007ce1c18bd91a5d5896f9/pillow-11.3.0-cp314-cp314t-win_amd64.whl", hash = "sha256:8924748b688aa210d79883357d102cd64690e56b923a186f35a82cbc10f997db", size = 7121500, upload-time = "2025-07-01T09:15:48.512Z" },
     { url = "https://files.pythonhosted.org/packages/89/c7/5572fa4a3f45740eaab6ae86fcdf7195b55beac1371ac8c619d880cfe948/pillow-11.3.0-cp314-cp314t-win_arm64.whl", hash = "sha256:79ea0d14d3ebad43ec77ad5272e6ff9bba5b679ef73375ea760261207fa8e0aa", size = 2512835, upload-time = "2025-07-01T09:15:50.399Z" },
+]
+
+[[package]]
+name = "plotly"
+version = "6.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "narwhals" },
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0c/63/961d47c9ffd592a575495891cdcf7875dc0903ebb33ac238935714213789/plotly-6.3.1.tar.gz", hash = "sha256:dd896e3d940e653a7ce0470087e82c2bd903969a55e30d1b01bb389319461bb0", size = 6956460, upload-time = "2025-10-02T16:10:34.16Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3f/93/023955c26b0ce614342d11cc0652f1e45e32393b6ab9d11a664a60e9b7b7/plotly-6.3.1-py3-none-any.whl", hash = "sha256:8b4420d1dcf2b040f5983eed433f95732ed24930e496d36eb70d211923532e64", size = 9833698, upload-time = "2025-10-02T16:10:22.584Z" },
 ]
 
 [[package]]
